@@ -51,7 +51,7 @@ class WHCorpJob(Job):
         tr = tbody.tr
 
         children = tr.find_all(['th', 'td'])
-        if len(children) == 0 or children[0].string != 'Shift ':
+        if len(children) == 0 or children[0].string != 'Shift':
             raise Exception('Shift', 'Shift row unexpected')
 
         j = 0
