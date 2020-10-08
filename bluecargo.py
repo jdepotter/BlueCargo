@@ -1,5 +1,6 @@
 import json
-from jobs import WHCorpJob, AmericanStorageJob
+from whcorp import WHCorpJob
+#from americanstorage import AmericanStorageJob
 import pprint
 
 def load_config():
@@ -13,8 +14,8 @@ def load_config():
 def job_factory(name, config):
     if name == 'WHCorp':
         return WHCorpJob(config)
-    elif name == "AmericanStorage":
-        return AmericanStorageJob(config)
+    #elif name == "AmericanStorage":
+        #return AmericanStorageJob(config)
 
     raise Exception('Error', f'No job for {name}')
 
