@@ -3,6 +3,10 @@
         {
             "name": "WHCorp",
             "url": "https://bluecargo.julink.fr/site1/index.html"
+        },
+        {
+            "name": "AmericanStorage",
+            "url": "https://bluecargo.julink.fr/site2/index.html"
         }
     ]
 }

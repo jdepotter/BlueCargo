@@ -10,92 +10,107 @@ class AmericanStorageJob(Job):
 
 
     class Validator:
-        self.weekMatch = "^WEEK ([0-9]{0,2})$"
-        self.hoursMatch = "^Opening hours every day ([0-9]{1,2}[ap]{1}m) .* ([0-9]{1,2}[ap]{1}m) \/ ([0-9]{1,2}[ap]{1}m) .* ([0-9]{1,2}[ap]{1}m)$"
-        self.dayMatch = "^([a-zA-Z]+) (morning|afternoon)$"
+        def __init__(self):
+            self.weekMatch = "^WEEK ([0-9]{0,2})$"
+            self.hoursMatch = "^Opening hours every day ([0-9]{1,2}[ap]{1}m) .* ([0-9]{1,2}[ap]{1}m) \/ ([0-9]{1,2}[ap]{1}m) .* ([0-9]{1,2}[ap]{1}m)$"
+            self.dayMatch = "^([a-zA-Z]+) (morning|afternoon)$"
 
-        def validate_week_match(self, weekVal):
-            if weekVal == None:
+
+        def evaluate_match(self, val, match):
+            if val == None:
                 return None
                 
-            m = re.match(self.weekMatch, weekVal.strip())
+            m = re.match(match, val.strip())
 
             if m == None:
                 return None
 
-            g = m.groups()
+            return m.groups()
+
+
+        def validate_week_match(self, weekVal):
+            g = self.evaluate_match(weekVal, self.weekMatch)
+            if g == None:
+                return None
+
             return {"week": g[0]}
 
         
-        def validate_hours_match(self, hoursVal):
+        def validate_hours_match(self, hoursVal):            
             if hoursVal == None:
                 return {"morning": None, "afternoon": None}
 
-            m = re.match(self.hoursVal, hoursVal.strip())
+            g = self.evaluate_match(hoursVal, self.hoursMatch)
 
-            if m == None:
-                return None
-
-            g = m.groups()
             return {"morning": f"{g[0]} - {g[1]}", "afternoon": f"{g[2]} - {g[3]}"}
 
 
-        def validate_day_match()
+        def validate_day_match(self, dayVal):
+            g = self.evaluate_match(dayVal, self.dayMatch)
+            if g == None:
+                return None
+
+            return {"day": g[0], "shift": g[1].capitalize() }
 
             
-
-        class Mpper:
+    class Mapper:
+        def __init__(self):
             self.availabilityMapper = {
-                "free": "OPEN",
-                "closed": "CLOSE"
+                "Free": "OPEN",
+                "Closed": "CLOSE"
             }
 
+        def mapAvailability(self, availability):
+            if availability == None:
+                return None
+                
+            if availability not in self.availabilityMapper:
+                return availability
 
-    def __init__(self):
+            return self.availabilityMapper[availability]
+
+
+    def __init__(self, config):
+        super().__init__(config)
+        self._v = self.Validator()
+        self._m = self.Mapper()
+        self.openingHourSel = '.opening-hour'
+        self.shiftSelf = 'li'
+        self.weekSel = 'div.week'
+        self.weekHeaderSel = 'h2'
 
     
     def extract_hours(self, weekItem):
-        hours = weekItem.select('.opening-hour')[0].string
+        hours = weekItem.select(self.openingHourSel)[0].string
 
-        m = re.match(self.hoursMatch, hours)
+        vHours = self._v.validate_hours_match(hours)
 
-        if m == None:
+        if vHours == None:
             raise Exception('Hours', 'Wrong hours format')
 
-        g = m.groups()
-
-        hours = {"Morning": f"{g[0]} - {g[1]}", "Afternoon": f"{g[2]} - {g[3]}"}
-
-        return hours
+        return {"Morning": vHours["morning"], "Afternoon": vHours["afternoon"]}
 
 
     def extract_shift(self,hours, weekItem):
-        lis = weekItem.find_all('li')
+        lis = weekItem.find_all(self.shiftSelf)
 
         shifts = []
 
         for li in lis:
-            daytime = li.contents[0].string
+            day = li.contents[0].string
             availability = li.contents[1].string
 
-            m = re.match(self.dayMatch, daytime)
+            vDay = self._v.validate_day_match(day)
 
-            if m == None:
+            if vDay == None:
                 continue
 
-            g = m.groups()
-
-            if availability != None:
-                availability = availability.split(': ')[1]
-                if availability in self.availabilityMapper:
-                    availability = self.availabilityMapper[availability]
-                else:
-                    availability = availability.capitalize()
+            availability = self._m.mapAvailability(availability)
 
             shifts.append({
-                "Weekday": g[0],
-                "Shift": g[1].capitalize(),
-                "Openin hours": hours[g[1].capitalize()],
+                "Weekday": vDay["day"],
+                "Shift": vDay["shift"],
+                "Openin hours": hours[vDay["shift"]],
                 "Availability": availability
             })
 
@@ -103,22 +118,21 @@ class AmericanStorageJob(Job):
 
 
     def extract_weeks(self, soup):
-        weekItems = soup.select('div.week')
+        weekItems = soup.select(self.weekSel)
 
         weeks = {}
         for weekItem in weekItems:
-            weekName = weekItem.find('h2').string
+            week = weekItem.find(self.weekHeaderSel ).string
 
-            m = re.match(self.weekMatch, weekName)
-            if m == None:
+            vWeek = self._v.validate_week_match(week)
+
+            if vWeek == None:
                 continue
-
-            g = m.groups()
 
             hours = self.extract_hours(weekItem)
             shifts = self.extract_shift(hours, weekItem)
             
-            weeks[f'Week {g[0]}'] = {
+            weeks[f'Week {vWeek["week"]}'] = {
                 self.name: shifts
             }
         
